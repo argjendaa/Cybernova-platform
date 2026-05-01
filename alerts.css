@@ -1,0 +1,153 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+    background: radial-gradient(circle at top, #0b1220, #020617);
+    color: #fff;
+}
+ .container{
+    display:contents;
+ }
+.alerts-page{
+    padding:30px;
+}
+
+/* HEADER */
+.alerts-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:25px;
+}
+
+.alerts-header h1{
+    font-size:26px;
+}
+
+.alerts-header p{
+    color:#94a3b8;
+}
+
+/* STATS */
+.alerts-stats{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:15px;
+    margin-bottom:25px;
+}
+
+.stat-card{
+    padding:20px;
+    border-radius:15px;
+    background:rgba(255,255,255,0.05);
+    text-align:center;
+}
+
+.stat-card h3{
+    font-size:13px;
+    color:#94a3b8;
+}
+
+.stat-card p{
+    font-size:26px;
+}
+
+/* COLORS */
+.high{border-left:4px solid #ef4444;}
+.medium{border-left:4px solid #eab308;}
+.low{border-left:4px solid #22c55e;}
+
+/* LIST */
+.alerts-list{
+    display:flex;
+    flex-direction:column;
+    gap:15px;
+}
+
+/* CARD */
+.alerts-card{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:18px;
+    border-radius:15px;
+    background:rgba(255,255,255,0.04);
+    transition:0.3s;
+}
+
+.alerts-card:hover{
+    transform:translateY(-3px);
+}
+
+/* RESOLVED */
+.resolved{
+    opacity:0.5;
+}
+
+/* LEFT */
+.alerts-left{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+/* BADGE */
+.alerts-badge{
+    padding:6px 10px;
+    border-radius:8px;
+    font-size:11px;
+    font-weight:bold;
+}
+
+.alerts-badge.high{background:#ef4444;}
+.alerts-badge.medium{background:#eab308;}
+.alerts-badge.low{background:#22c55e;}
+
+/* INFO */
+.alerts-info h3{
+    font-size:15px;
+}
+
+.alerts-info p{
+    font-size:12px;
+    color:#94a3b8;
+}
+
+/* BUTTON */
+.btn-resolve{
+    padding:8px 14px;
+    border:none;
+    border-radius:8px;
+    background:#22c55e;
+    color:white;
+    cursor:pointer;
+}
+
+/* DONE */
+.done{
+    color:#22c55e;
+}
+
+/* EMPTY */
+.empty{
+    text-align:center;
+    padding:30px;
+    color:#94a3b8;
+}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+    .alerts-stats{
+        grid-template-columns:repeat(2,1fr);
+    }
+
+    .alerts-card{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:10px;
+    }
+}
