@@ -1,7 +1,9 @@
 <?php
+
 include "config.php";
 
 if(isset($_POST['login'])){
+   
 
     $email = trim($_POST['email']);
     $password = $_POST['password'];
@@ -35,9 +37,10 @@ if(isset($_POST['login'])){
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Login</title>
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <link rel="stylesheet" href="style.css">
+    <title>Login</title>
 </head>
 <body>
 
@@ -48,12 +51,14 @@ if(isset($_POST['login'])){
         <p class="error"><?= $error ?></p>
     <?php endif; ?>
 
+    
     <form method="POST">
         <input type="email" name="email" placeholder="Email" required>
         <input type="password" name="password" placeholder="Password" required>
         <button type="submit" name="login" class="btn">Kyçu</button>
     </form>
 
+   
     <p>Nuk ke llogari? <a href="register.php">Regjistrohu</a></p>
 </div>
 
