@@ -54,7 +54,7 @@ $total = $conn->query("SELECT COUNT(*) t FROM alerts")->fetch_assoc()['t'] ?? 0;
         <li><a href="dashboard.php">Dashboard</a></li>
         <li><a href="scan.php">Scan</a></li>
         <li class="active"><a href="#">Alerts</a></li>
-        <li><a href="#">Reports</a></li>
+        <li><a href="reports.php">Reports</a></li>
         <li><a href="#">Settings</a></li>
         <li><a href="logout.php">Logout</a></li>
     </ul>
