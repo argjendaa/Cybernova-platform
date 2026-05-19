@@ -8,7 +8,7 @@ Qëllimi kryesor është:
 Të rrisë nivelin e sigurisë kibernetike për bizneset e vogla
 Të ofrojë një zgjidhje të thjeshtë dhe të përballueshme
 Të zvogëlojë rrezikun nga sulmet si phishing, malware dhe vjedhja e të dhënave
-Funksionalitetet Kryesore
+
 # Platforma përfshin këto funksione:
 
 Skanim i Sistemit / Website-it
