@@ -66,17 +66,22 @@ if(isset($_GET['export'])){
 <div class="container">
 
 <!-- SIDEBAR -->
-<div class="sidebar">
-    <h2>CyberNova</h2>
+<div class="sidebar" id="sidebar">
+
+    <div class="sidebar-logo">
+        <img src="library/logo(1).png">
+    </div>
+
     <ul>
         <li><a href="dashboard.php">Dashboard</a></li>
         <li><a href="scan.php">Scan</a></li>
         <li><a href="alerts.php">Alerts</a></li>
-        <li class="active"><a href="reports.php">Reports</a></li>
-        <li><a href="#">Settings</a></li>
+        <li><a href="reports.php">Reports</a></li>
+        <li><a href="settings.php">Settings</a></li>
+        <li><a href="logout.php">Logout</a></li>
     </ul>
-</div>
 
+</div>
 <!-- MAIN -->
 <div class="main">
 
