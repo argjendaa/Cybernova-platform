@@ -6,7 +6,6 @@
 
 include "config.php";
 
-/* ── Auth guard ─────────────────────────────────────── */
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
@@ -18,19 +17,14 @@ $username = $_SESSION['username'] ?? 'User';
 /* ── Export CSV ─────────────────────────────────────── */
 if (isset($_GET['export'])) {
     header('Content-Type: text/csv; charset=UTF-8');
-    header('Content-Disposition: attachment; filename="cybershield-report-' . date('Y-m-d') . '.csv"');
-
+    header('Content-Disposition: attachment; filename="cybernova-report-' . date('Y-m-d') . '.csv"');
     $out = fopen("php://output", "w");
     fputcsv($out, ['URL', 'Score', 'Risk Level', 'Date']);
-
     $stmt = $conn->prepare("SELECT url, score, risk_level, scanned_at FROM scans WHERE user_id=? ORDER BY id DESC");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $res = $stmt->get_result();
-    while ($row = $res->fetch_assoc()) {
-        fputcsv($out, $row);
-    }
-
+    while ($row = $res->fetch_assoc()) fputcsv($out, $row);
     fclose($out);
     exit();
 }
@@ -38,17 +32,16 @@ if (isset($_GET['export'])) {
 /* ── Stats ──────────────────────────────────────────── */
 $stmt = $conn->prepare("SELECT COUNT(*) n FROM scans WHERE user_id=?");
 $stmt->bind_param("i", $user_id); $stmt->execute();
-$totalScans = (int) ($stmt->get_result()->fetch_assoc()['n'] ?? 0);
+$totalScans = (int)($stmt->get_result()->fetch_assoc()['n'] ?? 0);
 
 $stmt = $conn->prepare("SELECT COALESCE(AVG(score),0) n FROM scans WHERE user_id=?");
 $stmt->bind_param("i", $user_id); $stmt->execute();
-$avgScore = round((float) ($stmt->get_result()->fetch_assoc()['n'] ?? 0));
+$avgScore = round((float)($stmt->get_result()->fetch_assoc()['n'] ?? 0));
 
 function sev(mysqli $db, string $s, int $uid): int {
     $q = $db->prepare("SELECT COUNT(*) n FROM alerts WHERE user_id=? AND severity=?");
-    $q->bind_param("is", $uid, $s);
-    $q->execute();
-    return (int) ($q->get_result()->fetch_assoc()['n'] ?? 0);
+    $q->bind_param("is", $uid, $s); $q->execute();
+    return (int)($q->get_result()->fetch_assoc()['n'] ?? 0);
 }
 
 $cnt_high   = sev($conn, 'high',   $user_id);
@@ -58,21 +51,18 @@ $cnt_low    = sev($conn, 'low',    $user_id);
 /* ── Chart data ─────────────────────────────────────── */
 $chart_labels = [];
 $chart_scores = [];
-
 $stmt = $conn->prepare("SELECT score, scanned_at FROM scans WHERE user_id=? ORDER BY id ASC LIMIT 10");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
+$stmt->bind_param("i", $user_id); $stmt->execute();
 $res = $stmt->get_result();
 while ($row = $res->fetch_assoc()) {
     $chart_labels[] = date("d M", strtotime($row['scanned_at']));
-    $chart_scores[] = (int) $row['score'];
+    $chart_scores[] = (int)$row['score'];
 }
 $stmt->close();
 
-/* ── Recent scans table ─────────────────────────────── */
+/* ── Recent scans ───────────────────────────────────── */
 $stmt = $conn->prepare("SELECT url, score, risk_level, scanned_at FROM scans WHERE user_id=? ORDER BY id DESC LIMIT 15");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
+$stmt->bind_param("i", $user_id); $stmt->execute();
 $scans = $stmt->get_result();
 $stmt->close();
 ?>
@@ -81,7 +71,7 @@ $stmt->close();
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reports — CyberShield</title>
+  <title>Reports — CyberNova</title>
   <link rel="stylesheet" href="dashboard.css">
   <link rel="stylesheet" href="reports.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -90,17 +80,18 @@ $stmt->close();
 
 <div class="overlay" id="overlay"></div>
 
+<!-- TOPBAR -->
 <div class="topbar">
-  <span class="topbar-logo">🛡 CyberShield</span>
+  <img src="library/logo(2).png" alt="CyberNova" class="topbar-logo-img">
   <div class="menu-toggle" id="menuToggle">
     <span></span><span></span><span></span>
   </div>
 </div>
 
+<!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-icon">🛡</div>
-    <h1>CyberShield</h1>
+    <img src="library/logo(2).png" alt="CyberNova" class="sidebar-logo-img">
   </div>
   <span class="nav-section">Menu</span>
   <ul>
@@ -123,6 +114,7 @@ $stmt->close();
   </div>
 </aside>
 
+<!-- MAIN -->
 <main class="main">
 
   <div class="page-top">
@@ -200,14 +192,13 @@ $stmt->close();
 </main>
 
 <script>
-/* ── Chart ─────────────────────────────────────────── */
 new Chart(document.getElementById('rpChart'), {
   type: 'line',
   data: {
-    labels: <?= json_encode($chart_labels) ?>,
+    labels: <?= json_encode($chart_labels ?: ['—']) ?>,
     datasets: [{
       label: 'Security Score',
-      data: <?= json_encode($chart_scores) ?>,
+      data: <?= json_encode($chart_scores ?: [0]) ?>,
       borderColor: '#38bdf8',
       backgroundColor: 'rgba(56,189,248,0.07)',
       borderWidth: 2,
@@ -222,27 +213,19 @@ new Chart(document.getElementById('rpChart'), {
     maintainAspectRatio: false,
     plugins: { legend: { labels: { color: '#64748b', font: { size: 12 } } } },
     scales: {
-      y: {
-        min: 0, max: 100,
-        ticks: { color: '#475569' },
-        grid:  { color: 'rgba(255,255,255,0.04)' }
-      },
-      x: {
-        ticks: { color: '#475569' },
-        grid:  { color: 'rgba(255,255,255,0.03)' }
-      }
+      y: { min: 0, max: 100, ticks: { color: '#475569', callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      x: { ticks: { color: '#475569' }, grid: { color: 'rgba(255,255,255,0.03)' } }
     }
   }
 });
 
-/* ── Mobile sidebar ─────────────────────────────────── */
 const toggle  = document.getElementById('menuToggle');
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
-function open()  { sidebar.classList.add('active'); overlay.classList.add('active'); toggle.classList.add('active'); }
-function close() { sidebar.classList.remove('active'); overlay.classList.remove('active'); toggle.classList.remove('active'); }
-toggle.addEventListener('click', () => sidebar.classList.contains('active') ? close() : open());
-overlay.addEventListener('click', close);
+function openSB()  { sidebar.classList.add('active');    overlay.classList.add('active');    toggle.classList.add('active');    }
+function closeSB() { sidebar.classList.remove('active'); overlay.classList.remove('active'); toggle.classList.remove('active'); }
+toggle.addEventListener('click', () => sidebar.classList.contains('active') ? closeSB() : openSB());
+overlay.addEventListener('click', closeSB);
 </script>
 
 </body>
