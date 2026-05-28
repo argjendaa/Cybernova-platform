@@ -1,163 +1,123 @@
 <?php
+/**
+ * scan_process.php — CyberShield
+ * AJAX endpoint: merr URL, bën scan, kthen JSON
+ * Thirret nga scan.php me fetch()
+ */
 
-require_once "config.php";
+header('Content-Type: application/json');
+include "config.php";
 
+/* ── Protect ───────────────────────────────────────────────── */
 if (!isset($_SESSION['user_id'])) {
-
-    header("Location: login.php");
-
-    exit();
-
-}
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    $url = trim($_POST['url']);
-
-    $issues = [];
-
-    $score = 100;
-
-    $risk = 'low';
-
-    if (!filter_var($url, FILTER_VALIDATE_URL)) {
-
-        $_SESSION['issues'] = ["URL jo valide"];
-
-        $_SESSION['result'] = 0;
-
-        header("Location: scan.php");
-
-        exit();
-
-    }
-
-    $headers = @get_headers($url, 1);
-
-    if (!$headers) {
-
-        $issues[] = [
-            "Website nuk përgjigjet",
-            "high",
-            "server"
-        ];
-
-        $score -= 50;
-
-    }
-
-    if (strpos($url, 'https://') !== 0) {
-
-        $issues[] = [
-            "Website nuk përdor HTTPS",
-            "high",
-            "ssl"
-        ];
-
-        $score -= 20;
-         }
-
-    if (!isset($headers['X-Frame-Options'])) {
-
-        $issues[] = [
-            "Missing X-Frame-Options",
-            "medium",
-            "headers"
-        ];
-
-        $score -= 10;
-
-    }
-
-    if (!isset($headers['Content-Security-Policy'])) {
-
-        $issues[] = [
-            "Missing CSP",
-            "high",
-            "headers"
-        ];
-
-        $score -= 10;
-
-    }
-
-    if ($score < 40) {
-
-        $risk = 'high';
-
-    }
-
-    elseif ($score < 70) {
-
-        $risk = 'medium';
-
-    }
-
-    if ($score < 0) {
-
-        $score = 0;
-
-    }
-
-    $userId = $_SESSION['user_id'];
-
-    $stmt = $conn->prepare(
-        "
-        INSERT INTO scans
-        (user_id, url, score, risk_level)
-        VALUES (?, ?, ?, ?)
-         "
-    );
-
-    $stmt->bind_param(
-        "isis",
-        $userId,
-        $url,
-        $score,
-        $risk
-    );
-
-    $stmt->execute();
-
-    $scanId = $conn->insert_id;
-
-    foreach ($issues as $issue) {
-
-        $stmt = $conn->prepare(
-            "
-            INSERT INTO alerts
-            (
-                user_id,
-                scan_id,
-                message,
-                severity,
-                type,
-                source_url
-            )
-            VALUES (?, ?, ?, ?, ?, ?)
-            "
-        );
-
-        $stmt->bind_param(
-            "iissss",
-            $userId,
-            $scanId,
-            $issue[0],
-            $issue[1],
-            $issue[2],
-            $url
-        );
-
-        $stmt->execute();
-
-    }
-
-    $_SESSION['result'] = $score;
-
-    $_SESSION['issues'] =
-        array_column($issues, 0);
-
-    header("Location: scan.php");
-
+    echo json_encode(['error' => 'Jo i autentifikuar.']);
     exit();
 }
+
+$user_id = (int) $_SESSION['user_id'];
+
+/* ── Merr URL ───────────────────────────────────────────────── */
+if (!isset($_POST['url'])) {
+    echo json_encode(['error' => 'URL mungon.']);
+    exit();
+}
+
+$url = trim($_POST['url']);
+
+/* ── Validim URL ────────────────────────────────────────────── */
+if (!filter_var($url, FILTER_VALIDATE_URL)) {
+    echo json_encode(['error' => 'URL jo valide! Shembull: https://example.com']);
+    exit();
+}
+
+/* ── Score & Issues ─────────────────────────────────────────── */
+$score  = 100;
+$issues = [];
+
+/* ── 1. Website Check ───────────────────────────────────────── */
+$context = stream_context_create([
+    'http' => [
+        'timeout'        => 8,
+        'ignore_errors'  => true,
+        'user_agent'     => 'CyberShield/1.0 SecurityScanner',
+    ],
+    'ssl' => [
+        'verify_peer'      => false,
+        'verify_peer_name' => false,
+    ]
+]);
+
+$headers = @get_headers($url, 1, $context);
+
+if (!$headers) {
+    $issues[] = 'Website nuk përgjigjet ose nuk është i aksesueshëm';
+    $score   -= 40;
+}
+
+/* ── 2. HTTPS Check ─────────────────────────────────────────── */
+if (stripos($url, 'https://') !== 0) {
+    $issues[] = 'Nuk përdor HTTPS — lidhja nuk është e enkriptuar';
+    $score   -= 25;
+}
+
+/* ── 3. Security Headers ────────────────────────────────────── */
+if ($headers) {
+    $hFlat = array_change_key_case((array) $headers, CASE_LOWER);
+
+    if (empty($hFlat['x-frame-options'])) {
+        $issues[] = 'Mungon X-Frame-Options — rrezik Clickjacking';
+        $score   -= 10;
+    }
+    if (empty($hFlat['x-content-type-options'])) {
+        $issues[] = 'Mungon X-Content-Type-Options';
+        $score   -= 5;
+    }
+    if (empty($hFlat['content-security-policy'])) {
+        $issues[] = 'Mungon Content-Security-Policy (CSP)';
+        $score   -= 10;
+    }
+    if (empty($hFlat['strict-transport-security'])) {
+        $issues[] = 'Mungon HSTS (Strict-Transport-Security)';
+        $score   -= 10;
+    }
+}
+
+/* ── Limit Score ────────────────────────────────────────────── */
+$score = max(0, min(100, $score));
+
+/* ── Risk Level ─────────────────────────────────────────────── */
+if      ($score >= 85) $risk = 'low';
+elseif  ($score >= 60) $risk = 'medium';
+else                   $risk = 'high';
+
+/* ── Ruaj Scan ──────────────────────────────────────────────── */
+$stmt = $conn->prepare("
+    INSERT INTO scans (user_id, url, score, risk_level)
+    VALUES (?, ?, ?, ?)
+");
+$stmt->bind_param('isis', $user_id, $url, $score, $risk);
+
+if (!$stmt->execute()) {
+    echo json_encode(['error' => 'Gabim gjatë ruajtjes në databazë.']);
+    exit();
+}
+$stmt->close();
+
+/* ── Ruaj Alerts ────────────────────────────────────────────── */
+foreach ($issues as $issue) {
+    $sev   = $risk;
+    $stmt2 = $conn->prepare("
+        INSERT INTO alerts (user_id, message, severity, status)
+        VALUES (?, ?, ?, 'open')
+    ");
+    $stmt2->bind_param('iss', $user_id, $issue, $sev);
+    $stmt2->execute();
+    $stmt2->close();
+}
+
+/* ── Kthe rezultatin ────────────────────────────────────────── */
+echo json_encode([
+    'score'  => $score,
+    'risk'   => $risk,
+    'issues' => $issues,
+]);
