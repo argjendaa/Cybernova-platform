@@ -1,180 +1,248 @@
 <?php
+/**
+ * reports.php — CyberShield
+ * Raportet e sigurisë me eksport CSV
+ */
+
 include "config.php";
 
-if(!isset($_SESSION['user'])){
+/* ── Auth guard ─────────────────────────────────────── */
+if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
 
-/* =========================
-   STATS
-========================= */
+$user_id  = (int) $_SESSION['user_id'];
+$username = $_SESSION['username'] ?? 'User';
 
-// total scans
-$totalScans = $conn->query("SELECT COUNT(*) t FROM scans")->fetch_assoc()['t'] ?? 0;
+/* ── Export CSV ─────────────────────────────────────── */
+if (isset($_GET['export'])) {
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="cybershield-report-' . date('Y-m-d') . '.csv"');
 
-// avg score
-$avgScore = $conn->query("SELECT AVG(score) s FROM scans")->fetch_assoc()['s'] ?? 0;
-$avgScore = round($avgScore);
+    $out = fopen("php://output", "w");
+    fputcsv($out, ['URL', 'Score', 'Risk Level', 'Date']);
 
-// alerts
-$high = $conn->query("SELECT COUNT(*) t FROM alerts WHERE severity='high'")->fetch_assoc()['t'] ?? 0;
-$medium = $conn->query("SELECT COUNT(*) t FROM alerts WHERE severity='medium'")->fetch_assoc()['t'] ?? 0;
-$low = $conn->query("SELECT COUNT(*) t FROM alerts WHERE severity='low'")->fetch_assoc()['t'] ?? 0;
-
-// recent scans
-$scans = $conn->query("SELECT * FROM scans ORDER BY id DESC LIMIT 15");
-
-/* =========================
-   EXPORT CSV
-========================= */
-if(isset($_GET['export'])){
-    header('Content-Type: text/csv');
-    header('Content-Disposition: attachment;filename=report.csv');
-
-    $output = fopen("php://output", "w");
-    fputcsv($output, ['URL','Score','Risk','Date']);
-
-    $res = $conn->query("SELECT url, score, risk_level, scanned_at FROM scans");
-
-    while($row = $res->fetch_assoc()){
-        fputcsv($output, $row);
+    $stmt = $conn->prepare("SELECT url, score, risk_level, scanned_at FROM scans WHERE user_id=? ORDER BY id DESC");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while ($row = $res->fetch_assoc()) {
+        fputcsv($out, $row);
     }
 
-    fclose($output);
+    fclose($out);
     exit();
 }
+
+/* ── Stats ──────────────────────────────────────────── */
+$stmt = $conn->prepare("SELECT COUNT(*) n FROM scans WHERE user_id=?");
+$stmt->bind_param("i", $user_id); $stmt->execute();
+$totalScans = (int) ($stmt->get_result()->fetch_assoc()['n'] ?? 0);
+
+$stmt = $conn->prepare("SELECT COALESCE(AVG(score),0) n FROM scans WHERE user_id=?");
+$stmt->bind_param("i", $user_id); $stmt->execute();
+$avgScore = round((float) ($stmt->get_result()->fetch_assoc()['n'] ?? 0));
+
+function sev(mysqli $db, string $s, int $uid): int {
+    $q = $db->prepare("SELECT COUNT(*) n FROM alerts WHERE user_id=? AND severity=?");
+    $q->bind_param("is", $uid, $s);
+    $q->execute();
+    return (int) ($q->get_result()->fetch_assoc()['n'] ?? 0);
+}
+
+$cnt_high   = sev($conn, 'high',   $user_id);
+$cnt_medium = sev($conn, 'medium', $user_id);
+$cnt_low    = sev($conn, 'low',    $user_id);
+
+/* ── Chart data ─────────────────────────────────────── */
+$chart_labels = [];
+$chart_scores = [];
+
+$stmt = $conn->prepare("SELECT score, scanned_at FROM scans WHERE user_id=? ORDER BY id ASC LIMIT 10");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$res = $stmt->get_result();
+while ($row = $res->fetch_assoc()) {
+    $chart_labels[] = date("d M", strtotime($row['scanned_at']));
+    $chart_scores[] = (int) $row['score'];
+}
+$stmt->close();
+
+/* ── Recent scans table ─────────────────────────────── */
+$stmt = $conn->prepare("SELECT url, score, risk_level, scanned_at FROM scans WHERE user_id=? ORDER BY id DESC LIMIT 15");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$scans = $stmt->get_result();
+$stmt->close();
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sq">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reports</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reports — CyberShield</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <link rel="stylesheet" href="reports.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
-<link rel="stylesheet" href="dashboard.css">
-<link rel="stylesheet" href="reports.css">
+<div class="overlay" id="overlay"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-</head>
-
-<body>
-
-<div class="container">
-
-<!-- SIDEBAR -->
-<div class="sidebar" id="sidebar">
-
-    <div class="sidebar-logo">
-        <img src="library/logo(1).png">
-    </div>
-
-    <ul>
-        <li><a href="dashboard.php">Dashboard</a></li>
-        <li><a href="scan.php">Scan</a></li>
-        <li><a href="alerts.php">Alerts</a></li>
-        <li><a href="reports.php">Reports</a></li>
-        <li><a href="settings.php">Settings</a></li>
-        <li><a href="logout.php">Logout</a></li>
-    </ul>
-
-</div>
-<!-- MAIN -->
-<div class="main">
-
-<div class="rp-page">
-
-<!-- TOP -->
-<div class="rp-top">
-    <h1>Security Reports</h1>
-    <a href="?export=1" class="rp-btn">Export CSV</a>
+<div class="topbar">
+  <span class="topbar-logo">🛡 CyberShield</span>
+  <div class="menu-toggle" id="menuToggle">
+    <span></span><span></span><span></span>
+  </div>
 </div>
 
-<!-- STATS -->
-<div class="rp-stats">
-
-    <div class="rp-card">
-        <h3>Total Scans</h3>
-        <p><?= $totalScans ?></p>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">🛡</div>
+    <h1>CyberShield</h1>
+  </div>
+  <span class="nav-section">Menu</span>
+  <ul>
+    <li><a href="dashboard.php"><span class="nav-icon">📊</span> Dashboard</a></li>
+    <li><a href="scan.php"><span class="nav-icon">🔍</span> Scan</a></li>
+    <li><a href="alerts.php"><span class="nav-icon">🔔</span> Alerts</a></li>
+    <li class="active"><a href="reports.php"><span class="nav-icon">📋</span> Reports</a></li>
+    <div class="sidebar-divider"></div>
+    <li><a href="settings.php"><span class="nav-icon">⚙</span> Settings</a></li>
+    <li><a href="logout.php"><span class="nav-icon">🚪</span> Logout</a></li>
+  </ul>
+  <div class="sidebar-footer">
+    <div class="user-chip">
+      <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
+      <div>
+        <div class="user-name"><?= htmlspecialchars($username) ?></div>
+        <div class="user-role">Business Account</div>
+      </div>
     </div>
+  </div>
+</aside>
 
-    <div class="rp-card">
-        <h3>Avg Score</h3>
-        <p><?= $avgScore ?>%</p>
+<main class="main">
+
+  <div class="page-top">
+    <div>
+      <h1>Security Reports</h1>
+      <p>Analizë e plotë e gjendjes së sigurisë</p>
     </div>
+    <a href="?export=1" class="cs-btn">⬇ Export CSV</a>
+  </div>
 
+  <!-- Stats -->
+  <div class="rp-stats">
+    <div class="rp-card">
+      <h3>Total Scans</h3>
+      <p><?= $totalScans ?></p>
+    </div>
+    <div class="rp-card">
+      <h3>Avg Score</h3>
+      <p><?= $avgScore ?>%</p>
+    </div>
     <div class="rp-card red">
-        <h3>High Alerts</h3>
-        <p><?= $high ?></p>
+      <h3>High Alerts</h3>
+      <p><?= $cnt_high ?></p>
     </div>
-
     <div class="rp-card yellow">
-        <h3>Medium Alerts</h3>
-        <p><?= $medium ?></p>
+      <h3>Medium Alerts</h3>
+      <p><?= $cnt_medium ?></p>
     </div>
-
     <div class="rp-card green">
-        <h3>Low Alerts</h3>
-        <p><?= $low ?></p>
+      <h3>Low Alerts</h3>
+      <p><?= $cnt_low ?></p>
     </div>
+  </div>
 
-</div>
+  <!-- Chart -->
+  <div class="rp-box">
+    <h3>📈 Security Score Trend</h3>
+    <div class="rp-chart-wrap">
+      <canvas id="rpChart"></canvas>
+    </div>
+  </div>
 
-<!-- CHART -->
-<div class="rp-box">
-    <h3>Security Score Trend</h3>
-    <canvas id="chart"></canvas>
-</div>
-
-<!-- TABLE -->
-<div class="rp-box">
-    <h3>Recent Scans</h3>
-
+  <!-- Table -->
+  <div class="rp-box">
+    <h3>🗂 Recent Scans</h3>
     <table class="rp-table">
+      <thead>
         <tr>
-            <th>URL</th>
-            <th>Score</th>
-            <th>Risk</th>
-            <th>Date</th>
+          <th>URL</th>
+          <th>Score</th>
+          <th>Risk</th>
+          <th>Date</th>
         </tr>
-
-        <?php while($row = $scans->fetch_assoc()): ?>
-        <tr>
+      </thead>
+      <tbody>
+        <?php if ($scans && $scans->num_rows > 0):
+          while ($row = $scans->fetch_assoc()): ?>
+          <tr>
             <td><?= htmlspecialchars($row['url']) ?></td>
-            <td><?= $row['score'] ?>%</td>
-            <td class="rp-<?= $row['risk_level'] ?>">
-                <?= strtoupper($row['risk_level']) ?>
+            <td><strong style="color:#e2e8f0;"><?= $row['score'] ?>%</strong></td>
+            <td class="rp-<?= htmlspecialchars($row['risk_level']) ?>"><?= strtoupper($row['risk_level']) ?></td>
+            <td><?= htmlspecialchars($row['scanned_at']) ?></td>
+          </tr>
+        <?php endwhile; else: ?>
+          <tr>
+            <td colspan="4" style="text-align:center; color:#334155; padding:32px;">
+              Nuk ka scans ende
             </td>
-            <td><?= $row['scanned_at'] ?></td>
-        </tr>
-        <?php endwhile; ?>
-
+          </tr>
+        <?php endif; ?>
+      </tbody>
     </table>
-</div>
+  </div>
 
-</div>
-
-</div>
-</div>
+</main>
 
 <script>
-const ctx = document.getElementById('chart');
-
-new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-        datasets: [{
-            label: 'Score',
-            data: [65,70,75,60,80,85,90],
-            borderColor: '#38bdf8',
-            tension:0.4
-        }]
+/* ── Chart ─────────────────────────────────────────── */
+new Chart(document.getElementById('rpChart'), {
+  type: 'line',
+  data: {
+    labels: <?= json_encode($chart_labels) ?>,
+    datasets: [{
+      label: 'Security Score',
+      data: <?= json_encode($chart_scores) ?>,
+      borderColor: '#38bdf8',
+      backgroundColor: 'rgba(56,189,248,0.07)',
+      borderWidth: 2,
+      tension: 0.42,
+      fill: true,
+      pointBackgroundColor: '#38bdf8',
+      pointRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#64748b', font: { size: 12 } } } },
+    scales: {
+      y: {
+        min: 0, max: 100,
+        ticks: { color: '#475569' },
+        grid:  { color: 'rgba(255,255,255,0.04)' }
+      },
+      x: {
+        ticks: { color: '#475569' },
+        grid:  { color: 'rgba(255,255,255,0.03)' }
+      }
     }
+  }
 });
+
+/* ── Mobile sidebar ─────────────────────────────────── */
+const toggle  = document.getElementById('menuToggle');
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('overlay');
+function open()  { sidebar.classList.add('active'); overlay.classList.add('active'); toggle.classList.add('active'); }
+function close() { sidebar.classList.remove('active'); overlay.classList.remove('active'); toggle.classList.remove('active'); }
+toggle.addEventListener('click', () => sidebar.classList.contains('active') ? close() : open());
+overlay.addEventListener('click', close);
 </script>
 
 </body>
