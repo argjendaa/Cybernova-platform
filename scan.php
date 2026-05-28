@@ -46,7 +46,7 @@ $stmt->close();
 <div class="overlay" id="overlay"></div>
 
 <div class="topbar">
-  <span class="topbar-logo">🛡 CyberNova</span>
+  <img src="library/logo(2).png" alt="CyberNova" class="topbar-logo-img">
   <div class="menu-toggle" id="menuToggle">
     <span></span><span></span><span></span>
   </div>
@@ -54,8 +54,7 @@ $stmt->close();
 
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-icon">🛡</div>
-    <h1>CyberShield</h1>
+    <img src="library/logo(2).png" alt="CyberNova" class="sidebar-logo-img">
   </div>
   <span class="nav-section">Menu</span>
   <ul>
