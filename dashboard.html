@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="sq">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
+
+  <title>Dashboard — CyberNova</title>
+
+  <link rel="stylesheet"
+        href="dashboard.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body>
+
+<!-- ═══════════════════════════════════
+     SIDEBAR
+═══════════════════════════════════ -->
+<aside class="sidebar">
+
+    <div class="sidebar-logo">
+
+        <img src="library/logo(2).png"
+             alt="CyberNova">
+
+    </div>
+
+    <ul>
+
+        <li class="active">
+            <a href="dashboard.php">
+                📊 Dashboard
+            </a>
+        </li>
+
+        <li>
+            <a href="scan.php">
+                🔍 Scan
+            </a>
+        </li>
+
+        <li>
+            <a href="alerts.php">
+                🔔 Alerts
+            </a>
+        </li>
+
+        <li>
+            <a href="reports.php">
+                📋 Reports
+            </a>
+        </li>
+
+        <li>
+            <a href="settings.php">
+                ⚙ Settings
+            </a>
+        </li>
+
+        <li>
+            <a href="logout.php">
+                🚪 Logout
+            </a>
+        </li>
+
+    </ul>
+
+</aside>
+
+<!-- ═══════════════════════════════════
+     MAIN
+═══════════════════════════════════ -->
+<main class="main">
+
+    <div class="page-top">
+
+        <div>
+
+            <h1>Security Dashboard</h1>
+
+            <p>
+                Mirë se vini,
+                {{username}}
+            </p>
+
+        </div>
+
+        <a href="scan.php"
+           class="cs-btn">
+
+            🔍 Start Scan
+
+        </a>
+
+    </div>
+
+    <!-- ═══════════════════════════════
+         CARDS
+    ═══════════════════════════════ -->
+    <div class="cards">
+
+        <div class="card green">
+
+            <h3>Total Scans</h3>
+
+            <h1>{{total_scans}}</h1>
+
+            <p>Skanime totale</p>
+
+        </div>
+
+        <div class="card red">
+
+            <h3>Total Alerts</h3>
+
+            <h1>{{total_alerts}}</h1>
+
+            <p>Paralajmërime</p>
+
+        </div>
+
+        <div class="card blue">
+
+            <h3>Safe Sites</h3>
+
+            <h1>{{safe_sites}}</h1>
+
+            <p>Rrezik i ulët</p>
+
+        </div>
+
+        <div class="card purple">
+
+            <h3>High Risk</h3>
+
+            <h1>{{high_risk}}</h1>
+
+            <p>Rrezik i lartë</p>
+
+        </div>
+
+    </div>
+
+    <!-- ═══════════════════════════════
+         CONTENT
+    ═══════════════════════════════ -->
+    <div class="content">
+
+        <div class="box">
+
+            <h2>📈 Security Analytics</h2>
+
+            <canvas id="securityChart"></canvas>
+
+        </div>
+
+        <div class="box">
+
+            <h2>🔔 Recent Alerts</h2>
+
+            <ul class="alerts">
+
+                {{alerts}}
+
+            </ul>
+
+        </div>
+
+    </div>
+
+</main>
+
+<!-- ═══════════════════════════════════
+     PHP → JS VARIABLES
+═══════════════════════════════════ -->
+<script>
+
+const chartLabels = JSON.parse(
+    '["01 May","02 May"]'
+);
+
+const chartScores = JSON.parse(
+    '[80,95]'
+);
+
+</script>
+
+<script src="dashboard.js"></script>
+
+</body>
+</html>
