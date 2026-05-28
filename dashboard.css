@@ -1,257 +1,537 @@
-* {
+/* ═══════════════════════════════════════════════════════════
+   dashboard.css — CyberShield
+   SHARED across: dashboard · scan · alerts · reports
+   Fajllat e tjerë CSS importojnë këtë dhe shtojnë
+   vetëm stilet unike për atë faqe.
+═══════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────
+   1. RESET & BASE
+───────────────────────────────────────────────────────── */
+*, *::before, *::after {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Segoe UI', system-ui, sans-serif;
 }
 
 body {
-    background: radial-gradient(circle at top, #0b1220, #020617);
+    background: radial-gradient(ellipse at top, #0d1526 0%, #020617 70%);
+    color: #e2e8f0;
+    min-height: 100vh;
+}
+
+/* ─────────────────────────────────────────────────────────
+   2. DESIGN TOKENS  (ngjyrat & vlerat bazë)
+───────────────────────────────────────────────────────── */
+:root {
+    --bg:           #020617;
+    --surface:      rgba(255,255,255,0.04);
+    --border:       rgba(255,255,255,0.07);
+    --border-light: rgba(255,255,255,0.04);
+    --radius:       14px;
+    --radius-sm:    8px;
+    --blur:         blur(18px);
+
+    --blue:   #38bdf8;
+    --green:  #22c55e;
+    --red:    #ef4444;
+    --yellow: #f59e0b;
+    --purple: #a855f7;
+
+    --text-1: #f1f5f9;   /* headings     */
+    --text-2: #e2e8f0;   /* body         */
+    --text-3: #94a3b8;   /* secondary    */
+    --text-4: #475569;   /* muted        */
+    --text-5: #334155;   /* very muted   */
+}
+
+/* ─────────────────────────────────────────────────────────
+   3. TOPBAR  — mobile only, hidden on desktop
+───────────────────────────────────────────────────────── */
+.topbar {
+    display: none;                      /* shown via media query */
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 58px;
+    padding: 0 18px;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(2, 6, 23, 0.94);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+    z-index: 1200;
+}
+
+.topbar-logo {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--blue);
+}
+
+/* ─────────────────────────────────────────────────────────
+   4. HAMBURGER BUTTON
+───────────────────────────────────────────────────────── */
+.menu-toggle {
+    width: 24px;
+    height: 17px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    cursor: pointer;
+}
+
+.menu-toggle span {
+    display: block;
+    height: 2px;
+    background: #cbd5e1;
+    border-radius: 2px;
+    transition: transform 0.26s ease, opacity 0.2s;
+}
+
+.menu-toggle.active span:nth-child(1) { transform: rotate(45deg) translate(4px, 4px); }
+.menu-toggle.active span:nth-child(2) { opacity: 0; }
+.menu-toggle.active span:nth-child(3) { transform: rotate(-45deg) translate(4px, -4px); }
+
+/* ─────────────────────────────────────────────────────────
+   5. OVERLAY  — mobile backdrop
+───────────────────────────────────────────────────────── */
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.58);
+    backdrop-filter: blur(3px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.26s, visibility 0.26s;
+    z-index: 900;
+}
+
+.overlay.active { opacity: 1; visibility: visible; }
+
+/* ─────────────────────────────────────────────────────────
+   6. SIDEBAR
+───────────────────────────────────────────────────────── */
+.sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: 238px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: rgba(255,255,255,0.025);
+    backdrop-filter: blur(22px);
+    border-right: 1px solid var(--border);
+    z-index: 1000;
+    transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+    overflow: hidden;
+}
+
+/* Logo */
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 22px 18px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.sidebar-logo h1 {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--blue);
+}
+
+.logo-icon {
+    width: 30px; height: 30px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, #3b82f6, #06b6d4);
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+/* Section label */
+.nav-section {
+    padding: 14px 18px 5px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-5);
+}
+
+/* Nav list */
+.sidebar ul {
+    list-style: none;
+    padding: 6px 8px;
+    flex: 1;
+}
+
+.sidebar ul li {
+    border-radius: 9px;
+    margin-bottom: 1px;
+}
+
+.sidebar ul li a {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 11px;
+    color: var(--text-4);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 9px;
+    border-left: 3px solid transparent;
+    transition: color 0.16s, background 0.16s, border-color 0.16s;
+}
+
+.sidebar ul li:hover a {
+    background: rgba(56,189,248,0.07);
+    color: var(--text-2);
+}
+
+.sidebar ul li.active a {
+    background: rgba(59,130,246,0.13);
+    color: var(--blue);
+    font-weight: 600;
+    border-left-color: var(--blue);
+}
+
+.nav-icon {
+    width: 18px;
+    text-align: center;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+/* Divider */
+.sidebar-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 6px 14px;
+}
+
+/* User chip */
+.sidebar-footer {
+    padding: 12px 10px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.user-chip {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 11px;
+    border-radius: 9px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+}
+
+.user-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3b82f6, #06b6d4);
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 700;
     color: #fff;
+    flex-shrink: 0;
 }
 
-/* TOPBAR */
-.topbar{
-    display:none;
-    position:fixed;
-    top:0;
-    left:0;
-    width:100%;
-    padding:20px;
-    z-index:1200;
+.user-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* LOGO */
-.sidebar-logo{
-    width:100%;
-    display:flex;
-    justify-content:flex-start;
-    align-items:center;
-    margin-bottom:40px;
+.user-role {
+    font-size: 11px;
+    color: var(--text-5);
+    margin-top: 1px;
 }
 
-.sidebar-logo h1{
-    color:#38bdf8;
-    font-size:24px;
+/* ─────────────────────────────────────────────────────────
+   7. MAIN CONTENT AREA
+───────────────────────────────────────────────────────── */
+.main {
+    margin-left: 238px;
+    padding: 42px 46px;
+    min-height: 100vh;
 }
 
-/* MENU BUTTON */
-.menu-toggle{
-    width:30px;
-    height:22px;
-    display:flex;
-    flex-direction:column;
-    justify-content:space-between;
-    cursor:pointer;
+/* Page header row */
+.page-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 26px;
+    flex-wrap: wrap;
 }
 
-.menu-toggle span{
-    height:3px;
-    width:100%;
-    background:#fff;
-    border-radius:5px;
-    transition:0.3s;
+.page-top h1,
+.main > h1 {
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--text-1);
 }
 
-/* MENU ANIMATION */
-.menu-toggle.active span:nth-child(1){
-    transform:rotate(45deg) translate(5px,5px);
+.page-top p {
+    font-size: 12.5px;
+    color: var(--text-4);
+    margin-top: 3px;
 }
 
-.menu-toggle.active span:nth-child(2){
-    opacity:0;
+/* ─────────────────────────────────────────────────────────
+   8. PANEL  — universal card/box used everywhere
+   .panel replaces: .card, .box, .stat-card, .rp-card, etc.
+   Page-specific files override padding/radius as needed.
+───────────────────────────────────────────────────────── */
+.panel {
+    background: var(--surface);
+    backdrop-filter: var(--blur);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.menu-toggle.active span:nth-child(3){
-    transform:rotate(-45deg) translate(5px,-5px);
+.panel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 26px rgba(0,0,0,0.3);
 }
 
-/* OVERLAY */
-.overlay{
-    position:fixed;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
-    background:rgba(0,0,0,0.5);
-    backdrop-filter:blur(5px);
-    opacity:0;
-    visibility:hidden;
-    transition:0.3s;
-    z-index:900;
+/* Panel heading */
+.panel-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-2);
+    letter-spacing: -0.01em;
 }
 
-.overlay.active{
-    opacity:1;
-    visibility:visible;
+/* ─────────────────────────────────────────────────────────
+   9. STAT CARDS  (dashboard & alerts & reports)
+───────────────────────────────────────────────────────── */
+.cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-top: 22px;
 }
 
-/* SIDEBAR */
-.sidebar{
-    width:260px;
-    height:100vh;
-    position:fixed;
-    top:0;
-    left:0;
-    padding:25px;
-    background:rgba(255,255,255,0.04);
-    backdrop-filter:blur(20px);
-    border-right:1px solid rgba(255,255,255,0.08);
-    z-index:1000;
+/* individual stat card — extends .panel */
+.card {
+    padding: 20px;
+    border-radius: var(--radius);
+    background: var(--surface);
+    backdrop-filter: var(--blur);
+    border: 1px solid var(--border);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.sidebar ul{
-    list-style:none;
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 26px rgba(0,0,0,0.3);
 }
 
-.sidebar ul li{
-    margin:10px 0;
-    border-radius:12px;
-    transition:0.3s;
+.card h3 {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 9px;
 }
 
-.sidebar ul li a{
-    color:#cbd5e1;
-    text-decoration:none;
-    padding:14px;
-    display:block;
-    border-radius:12px;
+.card h1 {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: #94a3b8;
+    line-height: 1;
 }
 
-.sidebar ul li:hover{
-    background:rgba(56,189,248,0.1);
-}
-
-.sidebar ul li.active{
-    background:linear-gradient(135deg,#3b82f6,#06b6d4);
-}
-
-/* MAIN */
-.main{
-    margin-left:260px;
-    padding:30px;
-}
-
-/* TOP */
-.dashboard-top{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:25px;
-}
-
-/* CARDS */
-.cards{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:20px;
-    margin-bottom:20px;
-}
-
-.card{
-    padding:25px;
-    border-radius:20px;
-    background:rgba(255,255,255,0.04);
-    backdrop-filter:blur(18px);
-    transition:0.3s;
-}
-
-.card:hover{
-    transform:translateY(-4px);
-}
-
-.card h3{
+.card p {
+    font-size: 11.5px;
     color:#94a3b8;
-    margin-bottom:15px;
+    margin-top: 6px;
 }
 
-.card h1{
-    font-size:42px;
+/* Accent borders — same tokens used everywhere */
+.green  { border-left: 3px solid var(--green);  }
+.red    { border-left: 3px solid var(--red);    }
+.blue   { border-left: 3px solid var(--blue);   }
+.purple { border-left: 3px solid var(--purple); }
+.yellow { border-left: 3px solid var(--yellow); }
+
+/* ─────────────────────────────────────────────────────────
+   10. BOX  (generic content panel: chart, alerts widget…)
+───────────────────────────────────────────────────────── */
+.box {
+    padding: 24px;
+    border-radius: var(--radius);
+    background: var(--surface);
+    backdrop-filter: var(--blur);
+    border: 1px solid var(--border);
 }
 
-.card p{
-    margin-top:10px;
-    color:#94a3b8;
+.box h2 {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-2);
+    margin-bottom: 18px;
 }
 
-/* COLORS */
-.green{
-    border-left:4px solid #22c55e;
+/* ─────────────────────────────────────────────────────────
+   11. DASHBOARD CONTENT GRID  (chart 2fr + alerts 1fr)
+───────────────────────────────────────────────────────── */
+.content {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 14px;
+    margin-top: 14px;
 }
 
-.red{
-    border-left:4px solid #ef4444;
+/* alerts widget inside dashboard box */
+.alerts { list-style: none; }
+
+.alerts li {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--border-light);
+    color: #f87171;
+    font-size: 12.5px;
+    line-height: 1.45;
 }
 
-.blue{
-    border-left:4px solid #3b82f6;
+.alerts li:last-child { border-bottom: none; }
+
+/* ─────────────────────────────────────────────────────────
+   12. SHARED BADGE — risk level
+   Classes used identically in scan, alerts, reports
+───────────────────────────────────────────────────────── */
+.risk-badge {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 100px;
 }
 
-.purple{
-    border-left:4px solid #a855f7;
+.risk-low    { background: rgba(34,197,94,0.11);  color: #4ade80; border: 1px solid rgba(34,197,94,0.22); }
+.risk-medium { background: rgba(245,158,11,0.11); color: #fbbf24; border: 1px solid rgba(245,158,11,0.22); }
+.risk-high   { background: rgba(239,68,68,0.11);  color: #f87171; border: 1px solid rgba(239,68,68,0.22); }
+
+/* ─────────────────────────────────────────────────────────
+   13. SHARED BUTTON
+───────────────────────────────────────────────────────── */
+.cs-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #3b82f6, #06b6d4);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 9px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.16s, transform 0.13s;
+    white-space: nowrap;
 }
 
-/* CONTENT */
-.content{
-    display:grid;
-    grid-template-columns:2fr 1fr;
-    gap:20px;
+.cs-btn:hover  { opacity: 0.84; transform: translateY(-1px); }
+.cs-btn:active { transform: translateY(0); }
+.cs-btn:disabled { opacity: 0.38; cursor: not-allowed; transform: none; }
+
+/* ─────────────────────────────────────────────────────────
+   14. SHARED TABLE
+───────────────────────────────────────────────────────── */
+.cs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
 }
 
-.box{
-    padding:30px;
-    border-radius:20px;
-    background:rgba(255,255,255,0.04);
+.cs-table th {
+    text-align: left;
+    padding: 9px 14px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-5);
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.1);
 }
 
-.box h2{
-    margin-bottom:20px;
+.cs-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text-3);
 }
 
-/* ALERTS */
-.alerts{
-    list-style:none;
+.cs-table tr:last-child td { border-bottom: none; }
+.cs-table tr:hover td      { background: rgba(56,189,248,0.025); }
+
+.cs-url {
+    max-width: 240px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--blue) !important;
 }
 
-.alerts li{
-    padding:16px 0;
-    border-bottom:1px solid rgba(255,255,255,0.08);
-    color:#f87171;
+/* ─────────────────────────────────────────────────────────
+   15. SHARED EMPTY STATE
+───────────────────────────────────────────────────────── */
+.empty-state {
+    text-align: center;
+    padding: 44px;
+    color: var(--text-5);
+    font-size: 13.5px;
+    background: rgba(255,255,255,0.015);
+    border-radius: var(--radius);
+    border: 1px dashed rgba(255,255,255,0.07);
 }
 
-/* RESPONSIVE */
-@media(max-width:900px){
+/* ─────────────────────────────────────────────────────────
+   16. RESPONSIVE
+───────────────────────────────────────────────────────── */
+@media (max-width: 960px) {
+    .topbar  { display: flex; }
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.active { transform: translateX(0); }
 
-    .topbar{
-        display:flex;
+    .main {
+        margin-left: 0;
+        padding: 74px 18px 38px;
     }
 
-    .sidebar{
-        transform:translateX(-100%);
-        transition:0.3s;
-    }
-
-    .sidebar.active{
-        transform:translateX(0);
-    }
-
-    .main{
-        margin-left:0;
-        padding-top:90px;
-    }
-
-    .cards{
-        grid-template-columns:repeat(2,1fr);
-    }
-
-    .content{
-        grid-template-columns:1fr;
-    }
+    .cards   { grid-template-columns: repeat(2, 1fr); }
+    .content { grid-template-columns: 1fr; }
 }
 
-@media(max-width:600px){
-
-    .cards{
-        grid-template-columns:1fr;
-    }
+@media (max-width: 540px) {
+    .cards   { grid-template-columns: 1fr; }
+    .main    { padding: 68px 12px 32px; }
+    .page-top { flex-direction: column; }
 }
