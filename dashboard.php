@@ -1,310 +1,257 @@
 <?php
+/**
+ * dashboard.php — CyberShield
+ * Faqja kryesore: statistika, grafik, alerts të fundit
+ */
+
 include "config.php";
 
-if(!isset($_SESSION['user'])){
+/* ── Auth guard ─────────────────────────────────────── */
+if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
 
-$user_id = $_SESSION['user_id'];
+$user_id  = (int) $_SESSION['user_id'];
+$username = $_SESSION['username'] ?? 'User';
 
-/* =========================
-   STATS
-========================= */
+/* ── Stats ──────────────────────────────────────────── */
+function dbcount(mysqli $db, string $sql, int $uid): int {
+    $s = $db->prepare($sql);
+    $s->bind_param("i", $uid);
+    $s->execute();
+    return (int) ($s->get_result()->fetch_assoc()['n'] ?? 0);
+}
 
-$total_scans = 0;
-$total_alerts = 0;
-$safe_sites = 0;
-$high_risk = 0;
+$total_scans  = dbcount($conn, "SELECT COUNT(*) n FROM scans  WHERE user_id=?", $user_id);
+$total_alerts = dbcount($conn, "SELECT COUNT(*) n FROM alerts WHERE user_id=?", $user_id);
+$safe_sites   = dbcount($conn, "SELECT COUNT(*) n FROM scans  WHERE user_id=? AND risk_level='low'",  $user_id);
+$high_risk    = dbcount($conn, "SELECT COUNT(*) n FROM scans  WHERE user_id=? AND risk_level='high'", $user_id);
 
-/* TOTAL SCANS */
-$stmt = $conn->prepare("
-    SELECT COUNT(*) as total
-    FROM scans
-    WHERE user_id=?
-");
-$stmt->bind_param("i",$user_id);
-$stmt->execute();
-$res = $stmt->get_result();
-$total_scans = $res->fetch_assoc()['total'] ?? 0;
-
-/* TOTAL ALERTS */
-$stmt = $conn->prepare("
-    SELECT COUNT(*) as total
-    FROM alerts
-    WHERE user_id=?
-");
-$stmt->bind_param("i",$user_id);
-$stmt->execute();
-$res = $stmt->get_result();
-$total_alerts = $res->fetch_assoc()['total'] ?? 0;
-
-/* SAFE SITES */
-$stmt = $conn->prepare("
-    SELECT COUNT(*) as total
-    FROM scans
-    WHERE user_id=? AND risk_level='low'
-");
-$stmt->bind_param("i",$user_id);
-$stmt->execute();
-$res = $stmt->get_result();
-$safe_sites = $res->fetch_assoc()['total'] ?? 0;
-
-/* HIGH RISK */
-$stmt = $conn->prepare("
-    SELECT COUNT(*) as total
-    FROM scans
-    WHERE user_id=? AND risk_level='high'
-");
-$stmt->bind_param("i",$user_id);
-$stmt->execute();
-$res = $stmt->get_result();
-$high_risk = $res->fetch_assoc()['total'] ?? 0;
-
-/* CHART DATA */
+/* ── Chart data (last 7 scans) ──────────────────────── */
 $chart_labels = [];
 $chart_scores = [];
 
 $stmt = $conn->prepare("
     SELECT score, scanned_at
-    FROM scans
-    WHERE user_id=?
-    ORDER BY id ASC
-    LIMIT 7
+    FROM   scans
+    WHERE  user_id = ?
+    ORDER  BY id ASC
+    LIMIT  7
 ");
-
-$stmt->bind_param("i",$user_id);
+$stmt->bind_param("i", $user_id);
 $stmt->execute();
-
 $res = $stmt->get_result();
 
-while($row = $res->fetch_assoc()){
-
+while ($row = $res->fetch_assoc()) {
     $chart_labels[] = date("d M", strtotime($row['scanned_at']));
-    $chart_scores[] = $row['score'];
+    $chart_scores[] = (int) $row['score'];
 }
+$stmt->close();
 
-/* RECENT ALERTS */
+/* ── Recent alerts ──────────────────────────────────── */
 $stmt = $conn->prepare("
-    SELECT message
-    FROM alerts
-    WHERE user_id=?
-    ORDER BY id DESC
-    LIMIT 5
+    SELECT message, severity
+    FROM   alerts
+    WHERE  user_id = ?
+    ORDER  BY id DESC
+    LIMIT  5
 ");
-
-$stmt->bind_param("i",$user_id);
+$stmt->bind_param("i", $user_id);
 $stmt->execute();
-
-$alerts = $stmt->get_result();
+$recent_alerts = $stmt->get_result();
+$stmt->close();
 ?>
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sq">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Dashboard</title>
-
-<link rel="stylesheet" href="dashboard.css">
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — CyberShield</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-
 <body>
 
-<!-- OVERLAY -->
+<!-- ══ OVERLAY ═══════════════════════════════════════ -->
 <div class="overlay" id="overlay"></div>
 
-<!-- MOBILE TOPBAR -->
+<!-- ══ TOPBAR  (mobile) ══════════════════════════════ -->
 <div class="topbar">
-
-    <div class="menu-toggle" id="menuToggle">
-        <span></span>
-        <span></span>
-        <span></span>
-    </div>
-
+  <span class="topbar-logo">🛡 CyberShield</span>
+  <div class="menu-toggle" id="menuToggle">
+    <span></span><span></span><span></span>
+  </div>
 </div>
 
-<!-- SIDEBAR -->
-<div class="sidebar" id="sidebar">
+<!-- ══ SIDEBAR ═══════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar">
 
-    <div class="sidebar-logo">
-        <img src="library/logo(1).png">
+  <div class="sidebar-logo">
+    <div class="logo-icon">🛡</div>
+    <h1>CyberShield</h1>
+  </div>
+
+  <span class="nav-section">Menu</span>
+
+  <ul>
+    <li class="active">
+      <a href="dashboard.php">
+        <span class="nav-icon">📊</span> Dashboard
+      </a>
+    </li>
+    <li>
+      <a href="scan.php">
+        <span class="nav-icon">🔍</span> Scan
+      </a>
+    </li>
+    <li>
+      <a href="alerts.php">
+        <span class="nav-icon">🔔</span> Alerts
+      </a>
+    </li>
+    <li>
+      <a href="reports.php">
+        <span class="nav-icon">📋</span> Reports
+      </a>
+    </li>
+    <div class="sidebar-divider"></div>
+    <li>
+      <a href="settings.php">
+        <span class="nav-icon">⚙</span> Settings
+      </a>
+    </li>
+    <li>
+      <a href="logout.php">
+        <span class="nav-icon">🚪</span> Logout
+      </a>
+    </li>
+  </ul>
+
+  <div class="sidebar-footer">
+    <div class="user-chip">
+      <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
+      <div>
+        <div class="user-name"><?= htmlspecialchars($username) ?></div>
+        <div class="user-role">Business Account</div>
+      </div>
+    </div>
+  </div>
+
+</aside>
+
+<!-- ══ MAIN ══════════════════════════════════════════ -->
+<main class="main">
+
+  <div class="page-top">
+    <div>
+      <h1>Security Dashboard</h1>
+      <p>Mirë se vini, <?= htmlspecialchars($username) ?> — ja gjendja e sigurisë tuaj sot.</p>
+    </div>
+    <a href="scan.php" class="cs-btn">🔍 Start Scan</a>
+  </div>
+
+  <!-- ── Stat cards ──────────────────────────────── -->
+  <div class="cards">
+    <div class="card green">
+      <h3>Total Scans</h3>
+      <h1><?= $total_scans ?></h1>
+      <p>Skanime totale</p>
+    </div>
+    <div class="card red">
+      <h3>Total Alerts</h3>
+      <h1><?= $total_alerts ?></h1>
+      <p>Paralajmërime</p>
+    </div>
+    <div class="card blue">
+      <h3>Safe Sites</h3>
+      <h1><?= $safe_sites ?></h1>
+      <p>Rrezik i ulët</p>
+    </div>
+    <div class="card purple">
+      <h3>High Risk</h3>
+      <h1><?= $high_risk ?></h1>
+      <p>Rrezik i lartë</p>
+    </div>
+  </div>
+
+  <!-- ── Chart + Alerts ──────────────────────────── -->
+  <div class="content">
+
+    <div class="box">
+      <h2>📈 Security Analytics</h2>
+      <canvas id="securityChart" height="120"></canvas>
     </div>
 
-    <ul>
-        <li><a href="dashboard.php">Dashboard</a></li>
-        <li><a href="scan.php">Scan</a></li>
-        <li><a href="alerts.php">Alerts</a></li>
-        <li><a href="reports.php">Reports</a></li>
-        <li><a href="#">Settings</a></li>
-        <li><a href="logout.php">Logout</a></li>
-    </ul>
-
-</div>
-
-<!-- MAIN -->
-<div class="main">
-
-    <h1>Cyber Security Dashboard</h1>
-
-    <!-- CARDS -->
-    <div class="cards">
-
-        <div class="card green">
-            <h3>Total Scans</h3>
-            <h1><?= $total_scans ?></h1>
-        </div>
-
-        <div class="card red">
-            <h3>Total Alerts</h3>
-            <h1><?= $total_alerts ?></h1>
-        </div>
-
-        <div class="card blue">
-            <h3>Safe Websites</h3>
-            <h1><?= $safe_sites ?></h1>
-        </div>
-
-        <div class="card purple">
-            <h3>High Risk</h3>
-            <h1><?= $high_risk ?></h1>
-        </div>
-
+    <div class="box">
+      <h2>🔔 Recent Alerts</h2>
+      <ul class="alerts">
+        <?php if ($recent_alerts->num_rows > 0):
+          while ($a = $recent_alerts->fetch_assoc()): ?>
+          <li>⚠ <?= htmlspecialchars($a['message']) ?></li>
+        <?php endwhile; else: ?>
+          <li style="color:#334155;">Nuk ka alerts ende</li>
+        <?php endif; ?>
+      </ul>
+      <a href="alerts.php" style="
+        display:inline-block; margin-top:16px;
+        font-size:12px; color:#38bdf8; text-decoration:none;
+        ">Shiko të gjitha →</a>
     </div>
 
-    <!-- CONTENT -->
-    <div class="content">
+  </div>
 
-        <!-- CHART -->
-        <div class="box">
+</main>
 
-            <h2>Security Analytics</h2>
-
-            <canvas id="securityChart"></canvas>
-
-        </div>
-
-        <!-- ALERTS -->
-        <div class="box">
-
-            <h2>Recent Alerts</h2>
-
-            <ul class="alerts">
-
-                <?php
-                if($alerts->num_rows > 0){
-
-                    while($a = $alerts->fetch_assoc()){
-
-                        echo "<li>⚠ ".htmlspecialchars($a['message'])."</li>";
-                    }
-
-                } else {
-
-                    echo "<li>No alerts found</li>";
-                }
-                ?>
-
-            </ul>
-
-        </div>
-
-    </div>
-
-</div>
-
-<!-- CHART -->
+<!-- ══ SCRIPTS ════════════════════════════════════════ -->
 <script>
-
-const ctx = document.getElementById('securityChart');
-
-new Chart(ctx, {
-    type: 'line',
-
-    data: {
-
-        labels: <?= json_encode($chart_labels) ?>,
-
-        datasets: [{
-
-            label: 'Security Score',
-
-            data: <?= json_encode($chart_scores) ?>,
-
-            borderColor: '#38bdf8',
-
-            backgroundColor: 'rgba(56,189,248,0.15)',
-
-            tension: 0.4,
-
-            fill: true
-        }]
+/* ── Chart ────────────────────────────────────────── */
+new Chart(document.getElementById('securityChart'), {
+  type: 'line',
+  data: {
+    labels: <?= json_encode($chart_labels) ?>,
+    datasets: [{
+      label: 'Security Score',
+      data: <?= json_encode($chart_scores) ?>,
+      borderColor: '#38bdf8',
+      backgroundColor: 'rgba(56,189,248,0.08)',
+      borderWidth: 2,
+      tension: 0.42,
+      fill: true,
+      pointBackgroundColor: '#38bdf8',
+      pointRadius: 4,
+      pointHoverRadius: 6,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { labels: { color: '#64748b', font: { size: 12 } } }
     },
-
-    options: {
-
-        responsive: true,
-
-        plugins: {
-            legend: {
-                labels: {
-                    color: 'white'
-                }
-            }
-        },
-
-        scales: {
-
-            y: {
-                ticks: {
-                    color: 'white'
-                },
-
-                grid: {
-                    color: 'rgba(255,255,255,0.08)'
-                }
-            },
-
-            x: {
-                ticks: {
-                    color: 'white'
-                },
-
-                grid: {
-                    color: 'rgba(255,255,255,0.05)'
-                }
-            }
-        }
+    scales: {
+      y: {
+        min: 0, max: 100,
+        ticks: { color: '#475569', font: { size: 11 } },
+        grid:  { color: 'rgba(255,255,255,0.04)' }
+      },
+      x: {
+        ticks: { color: '#475569', font: { size: 11 } },
+        grid:  { color: 'rgba(255,255,255,0.03)' }
+      }
     }
+  }
 });
 
-</script>
+/* ── Mobile sidebar ───────────────────────────────── */
+const toggle  = document.getElementById('menuToggle');
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('overlay');
 
-<!-- MOBILE MENU -->
-<script>
+function openSidebar()  { sidebar.classList.add('active'); overlay.classList.add('active'); toggle.classList.add('active'); }
+function closeSidebar() { sidebar.classList.remove('active'); overlay.classList.remove('active'); toggle.classList.remove('active'); }
 
-const menuToggle = document.getElementById("menuToggle");
-const sidebar = document.getElementById("sidebar");
-const overlay = document.getElementById("overlay");
-
-menuToggle.onclick = () => {
-
-    sidebar.classList.toggle("active");
-    overlay.classList.toggle("active");
-    menuToggle.classList.toggle("active");
-};
-
-overlay.onclick = () => {
-
-    sidebar.classList.remove("active");
-    overlay.classList.remove("active");
-    menuToggle.classList.remove("active");
-};
-
+toggle.addEventListener('click', () => sidebar.classList.contains('active') ? closeSidebar() : openSidebar());
+overlay.addEventListener('click', closeSidebar);
 </script>
 
 </body>
